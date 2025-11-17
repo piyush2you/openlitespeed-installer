@@ -53,12 +53,19 @@ apt-get install fail2ban -y
 
 # Secure MySQL installation (automated)
 echo "Securing MySQL installation..."
-mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'ChangeThisPassword123!';"
-mysql -e "DELETE FROM mysql.user WHERE User='';"
-mysql -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
-mysql -e "DROP DATABASE IF EXISTS test;"
-mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
-mysql -e "FLUSH PRIVILEGES;"
+# Generate a random MySQL root password
+MYSQL_ROOT_PASS=$(openssl rand -base64 16)
+
+# Use sudo to connect to MySQL initially (Ubuntu/Debian default)
+sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT_PASS';" 2>/dev/null || \
+mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT_PASS';"
+
+# Now secure the installation with the new password
+mysql -u root -p"$MYSQL_ROOT_PASS" -e "DELETE FROM mysql.user WHERE User='';"
+mysql -u root -p"$MYSQL_ROOT_PASS" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
+mysql -u root -p"$MYSQL_ROOT_PASS" -e "DROP DATABASE IF EXISTS test;"
+mysql -u root -p"$MYSQL_ROOT_PASS" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
+mysql -u root -p"$MYSQL_ROOT_PASS" -e "FLUSH PRIVILEGES;"
 
 # Set OpenLiteSpeed admin password
 echo "Setting OpenLiteSpeed admin password..."
@@ -157,7 +164,7 @@ echo "  URL: https://$SERVER_IP:7080"
 echo "  Username: admin"
 echo "  Password: $ADMIN_PASS"
 echo ""
-echo "MySQL Root Password: ChangeThisPassword123!"
+echo "MySQL Root Password: $MYSQL_ROOT_PASS"
 echo ""
 echo "Default Website:"
 echo "  URL: http://$SERVER_IP:8088"
@@ -172,7 +179,9 @@ echo "Fail2Ban Status:"
 fail2ban-client status
 echo ""
 echo "IMPORTANT: Save these credentials securely!"
-echo "Change the MySQL root password after first login."
+echo ""
+echo "MySQL Login Command:"
+echo "  mysql -u root -p'$MYSQL_ROOT_PASS'"
 echo ""
 echo "Security Recommendations:"
 echo "1. Change SSH port: Edit /etc/ssh/sshd_config"
